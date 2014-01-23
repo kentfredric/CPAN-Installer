@@ -1,0 +1,168 @@
+# An Installer Toolkit for CPAN Installers and Friends
+
+## Objectives
+
+1. **primary** To support installation of Perl Distributions without tooling
+2. **secondary** To standardize the mechanisms for performing installation of Perl Distributions, including those with dynamic tooling.
+
+## Mechanisms
+
+1. Such a toolkit should be networking agnostic. That is to say, that tasks such as resolving dependencies and ensuring they're installed
+   is a task for consuming code.
+
+2. And that this tool, should only concern itself with
+
+  a. Determining dependencies of various phases and passing that data to other tools
+  b. performing configuration, build, test, and install phases
+
+3. But does not have any burden to ensure dependencies are satisfied. Unsatisfied dependencies
+  are the responsibility of consuming code, and Perl Distributions that have violent criteria
+  of dependencies being satisfied should react appropriately.
+
+## Background
+
+First there was `ExtUtils::MakeMaker`. And things were OK, because the interface was constant:
+
+```shell
+  perl Makefile.PL
+  make
+  make test
+  make install
+
+```
+
+Then came `Module::Build`, which greatly increased the cognitive load for installers and results in a bit of special casing
+to support calling
+
+```shell
+
+  perl Build.PL
+  ./Build
+
+```
+etc.
+
+Supporting this entails every tool that wants to install things add special case support. And not all tools are a direct part of the CPAN ecosystem.
+
+And this leaves additional problems when subsequent toolkits emerge.
+
+Notably, the "no toolkit" toolkit, which is a viable option as long as `dynamic_config = 0`.
+
+As it stands, improvements to toolkitting require all the big 3 ( CPANPLUS, CPAN, cpanm ) to adapt.
+
+And this seems to mostly involve re-writing lots of stuff from scratch each time.
+
+If there are bugs, each toolkit has to manually adapt.
+
+## Approach
+
+There are 2 primary things pertaining to installation:
+
+1. Dependency Extraction
+
+2. Toolkit execution
+
+## Commandlets
+
+### `deps`
+
+The deps commandlet should do its best to determine the relevant dependencies
+given the environment.
+
+If `MYMETA.*` exists, prefer that, otherwise, prefer `META.*`. If no `META.*` exists, return nothing.
+
+```shell
+
+perl -MCPAN::Installer::CLI -- deps --phases=configure --relations=required --format=json
+
+perl -MCPAN::Installer -E 'print installer()->get_deps({ phases => [qw( configure )], relations => [qw( required )] )->as_json'
+
+```
+
+### `can_perform`
+
+The `can_perform` commandlet should establish wether the environment indicates that the given phase should be able to execute.
+
+This mechanism should also optimistically assume that if a `MYMETA.*` exists, that some tool has generated it,
+and should be preferred over `META.*`
+
+```shell
+
+perl -MCPAN::Installer::CLI -- can_perform configure
+
+perl -MCPAN::Installer -E 'if(  installer()->can_perform('configure') ) { ... }'
+
+```
+
+### `configure`
+
+This should call `Build.PL` and `Makefile.PL` if present, and expect them to generate `MYMETA.*`.
+
+If neither `Build.PL` or `Makefile.PL` exist, then either no-op, or copy `META.*` to `MYMETA.*`, or something like that.
+
+It is assumed containing code has executed `can_perform('configure')` and made the appropriate actions.
+
+```shell
+
+perl -MCPAN::Installer::CLI -- configure
+
+perl -MCPAN::Installer -E 'installer()->configure()'
+
+```
+
+### `build`
+
+Executes either `./Build` or `make` if batteries-included tooling.
+
+If no tooling is bundled, then assume standard layouts are in play similar to the criteria
+required by `Module::Build::Tiny`
+
+It is assumed containing code has executed `configure` and made the appropriate actions.
+
+It is assumed containing code has executed `can_perform('build')` and made the appropriate actions.
+
+```shell
+
+perl -MCPAN::Installer::CLI -- build
+
+perl -MCPAN::Installer -E 'installer()->build()'
+
+```
+
+### `test`
+
+Executes either `./Build test` or `make test` if batteries-included tooling.
+
+If no tooling is bundled, then assume standard layouts are in play similar to the criteria
+required by `Module::Build::Tiny`
+
+It is assumed containing code has executed `build` and made the appropriate actions.
+
+It is assumed containing code has executed `can_perform('test')` and made the appropriate actions.
+
+```shell
+
+perl -MCPAN::Installer::CLI -- build
+
+perl -MCPAN::Installer -E 'installer()->build()'
+
+```
+
+### `install`
+
+Executes either `./Build install` or `make install` if batteries-included tooling.
+
+If no tooling is bundled, then assume standard layouts are in play similar to the criteria
+required by `Module::Build::Tiny`
+
+It is assumed containing code has executed `build` and made the appropriate actions.
+
+It is assumed containing code has executed `can_perform('install')` and made the appropriate actions.
+
+```shell
+
+perl -MCPAN::Installer::CLI -- build
+
+perl -MCPAN::Installer -E 'installer()->build()'
+
+```
