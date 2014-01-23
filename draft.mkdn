@@ -13,6 +13,7 @@
 2. And that this tool, should only concern itself with
 
   a. Determining dependencies of various phases and passing that data to other tools
+
   b. performing configuration, build, test, and install phases
 
 3. But does not have any burden to ensure dependencies are satisfied. Unsatisfied dependencies
@@ -142,9 +143,9 @@ It is assumed containing code has executed `can_perform('test')` and made the ap
 
 ```shell
 
-perl -MCPAN::Installer::CLI -- build
+perl -MCPAN::Installer::CLI -- test
 
-perl -MCPAN::Installer -E 'installer()->build()'
+perl -MCPAN::Installer -E 'installer()->test()'
 
 ```
 
@@ -161,8 +162,8 @@ It is assumed containing code has executed `can_perform('install')` and made the
 
 ```shell
 
-perl -MCPAN::Installer::CLI -- build
+perl -MCPAN::Installer::CLI -- install
 
-perl -MCPAN::Installer -E 'installer()->build()'
+perl -MCPAN::Installer -E 'installer()->install()'
 
 ```
